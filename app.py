@@ -1,6 +1,7 @@
 from flask import Flask
 from flask import request,jsonify
 from datetime import datetime
+from functools import wraps
 app=Flask(__name__)
 
 @app.route("/")
@@ -15,6 +16,32 @@ def validate_expense(item):
     if not item.get("payment_method"):
         errors.append("Payment_method is required")
     return errors
+
+users= [{"id":1,
+         "username":"xoolish",
+         "password":"1234"
+         },
+        {"id":2,
+         "username":"abba",
+         "password":"abcd"
+        }
+]
+
+@app.route("/login", methods=["POST"])
+def login():
+    data=request.get_json()
+    username=data.get("username")
+    password=data.get("password")
+
+    user=next((u for u in users if u["username"]==username and u["password"]==password),None)
+    if user:
+        token=str(user["id"])
+        return jsonify({"Message":"Login Sucessful", "token":token}),200
+    return jsonify({"Message":"Invalid Username/Password"}),401
+
+ 
+
+
 
 @app.route("/expenses", methods=["POST"])
 def add_expense():
