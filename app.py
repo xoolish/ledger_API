@@ -39,14 +39,28 @@ def login():
         return jsonify({"Message":"Login Sucessful", "token":token}),200
     return jsonify({"Message":"Invalid Username/Password"}),401
 
+def require_auth(f):
+    @wraps(f)
+    def decorated(*args,**kwargs):
+        token=request.headers.get("Authorization")
+        if not token:
+            return jsonify({"Message":"missing token"})
+        current_user=next((u for u in users if str(user["id"])==token))
+        if not current_user:
+            return jsonify({"Message":"invalid token"})
+        request.current_user=current_user
+        return f(*args,**kwargs)
+    return decorated
+
  
 
 
 
 @app.route("/expenses", methods=["POST"])
+@require_auth
 def add_expense():
+    current_user=request.current_user
     data=request.get_json()
-    
     if not data:
         return jsonify({"Error": "No data provided"}),400
    
@@ -59,10 +73,11 @@ def add_expense():
         if errors:
             failed.append({"item":item,"errors":errors})
             continue
-        expense={"amount":item["amount"],
-             "category":item.get("category", "Uncategorized"),
-             "payment_method":item["payment_method"],
-              "date":item.get("date",datetime.today().strftime("%Y-%m-%d"))}
+        expense={"user_id":current_user["id"],
+                 "amount":item["amount"],
+                 "category":item.get("category", "Uncategorized"),
+                 "payment_method":item["payment_method"],
+                 "date":item.get("date",datetime.today().strftime("%Y-%m-%d"))}
         expenses.append(expense)
         added.append(expense)        
     status_code=201 if added and not failed else 207 if added and failed else 400
@@ -70,8 +85,11 @@ def add_expense():
                      "failed":failed}),status_code
 
 @app.route("/expenses", methods=["GET"])
+@require_auth
 def view_expenses():
-    return jsonify({"Expenses":expenses,
+    current_user=request.current_user
+    user_expenses=[e for e in expenses if e["user_id"] == current_user["id"]]
+    return jsonify({"Expenses":user_expenses,
                     "Count":len(expenses)
                    }),200
 
